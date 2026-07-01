@@ -172,19 +172,27 @@ async function loadStatus(){
 
 async function applyNetworkMode(){
   var btn=document.getElementById('btn-apply');
-  btn.textContent='⏳ Aktiviere...';btn.disabled=true;
+  btn.textContent='⏳ Node wird neugestartet...';btn.disabled=true;
   try{
-    // Store the preference
+    // Persist the preference
     try{localStorage.setItem('stone-network-mode',isTestnet?'testnet':'mainnet');}catch(e){}
+
+    // Call Tauri to restart the node with the new network
+    var result=await invoke('switch_node_network',{});
+    // result is "network|http://url:port"
+    var parts=result.split('|');
+    var net=parts[0],url=parts[1]||'';
+
     // Apply theme CSS
     if(isTestnet){
       try{var css=await invoke('get_theme_css',{extensionId:'testnet-mode'});
       if(css){await invoke('write_theme_css',{extensionId:'testnet-mode',css:css})}
       }catch(e){}
     }
-    // Reload status
-    await loadStatus();
-    toast(isTestnet?'Testnet-Modus aktiviert! 🧪':'Mainnet-Modus aktiviert! ✅',true);
+
+    toast('Node gestartet als '+net.toUpperCase()+' ('+url+')',true);
+    // Reload status after short delay (node needs time to boot)
+    setTimeout(function(){loadStatus()},3000);
   }catch(e){toast('Fehler: '+e,false)}
   btn.textContent='⚡ Jetzt aktivieren';btn.disabled=false;
 }
