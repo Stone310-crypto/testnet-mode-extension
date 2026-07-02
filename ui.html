@@ -9,36 +9,46 @@ p{color:#b8b4ae;line-height:1.5;margin-bottom:12px}
 .toggle-row{display:flex;align-items:center;gap:12px}
 .toggle-wrap{position:relative;width:52px;height:28px;border-radius:14px;cursor:pointer;transition:background .25s;border:none;outline:none}
 .toggle-wrap.on{background:#f59e0b}.toggle-wrap.off{background:#5a9e6f}
+.toggle-wrap.restarting{background:#6e6b65;cursor:wait}
 .toggle-knob{position:absolute;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .25s;left:3px}
 .toggle-wrap.on .toggle-knob{left:27px}
 .badge{padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600}
 .badge-testnet{background:rgba(245,158,11,0.12);color:#f59e0b}
 .badge-mainnet{background:rgba(90,158,111,0.12);color:#5a9e6f}
-.badge-ok{background:rgba(90,158,111,0.12);color:#5a9e6f;font-size:10px;padding:1px 6px;border-radius:4px}
 .badge-warn{background:rgba(245,158,11,0.12);color:#f59e0b;font-size:10px;padding:1px 6px;border-radius:4px}
-.badge-off{background:rgba(255,255,255,0.06);color:#6e6b65;font-size:10px;padding:1px 6px;border-radius:4px}
-.feature-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-.feature-row:last-child{border-bottom:none}
+.badge-ok{background:rgba(90,158,111,0.12);color:#5a9e6f;font-size:10px;padding:1px 6px;border-radius:4px}
 .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .status-item{background:#14161f;border-radius:8px;padding:10px;text-align:center}
 .status-val{font-size:18px;font-weight:700}
 .status-label{font-size:10px;color:#6e6b65;margin-top:2px}
-.warning-box{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:14px;margin-top:12px;display:flex;gap:10px;align-items:flex-start}
+.warning-box{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:14px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start}
 .warning-box .warn-icon{font-size:20px;flex-shrink:0}
 .warning-box .warn-text{font-size:11px;color:#f59e0b;line-height:1.5}
-.info-text{font-size:11px;color:#6e6b65;margin-top:6px}
-.btn{padding:6px 14px;border-radius:6px;border:none;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
-.btn-primary{background:#d4a853;color:#000}.btn-primary:hover{opacity:.9}
-.btn-secondary{background:rgba(255,255,255,0.08);color:#e8e4df}.btn-secondary:hover{background:rgba(255,255,255,0.12)}
-.toast{position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:99;animation:up .3s}
+.info-box{background:rgba(90,158,111,0.06);border:1px solid rgba(90,158,111,0.2);border-radius:10px;padding:14px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start}
+.info-box .info-icon{font-size:20px;flex-shrink:0}
+.info-box .info-text{font-size:11px;color:#5a9e6f;line-height:1.5}
+.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.feature-card{background:#14161f;border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,0.04)}
+.feature-card .fc-icon{font-size:24px;display:block;margin-bottom:4px}
+.feature-card .fc-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.feature-card .fc-status{font-size:10px;margin-top:4px}
+.feature-card.enabled{border-color:rgba(90,158,111,0.2)}
+.feature-card.testnet-only{border-color:rgba(245,158,11,0.2)}
+.loading{text-align:center;padding:20px;color:#6e6b65}
+.loading .spin{display:inline-block;animation:spin 1s linear infinite;font-size:20px}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:99;animation:up .3s;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
 .toast-ok{background:#5a9e6f;color:#fff}
 .toast-err{background:#d95b5b;color:#fff}
 @keyframes up{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 </style></head><body>
 <h1>🧪 Testnet Mode</h1>
-<p>Schalte das Dashboard zwischen Mainnet und Testnet um.</p>
+<p>Schalte das Dashboard zwischen Mainnet und Testnet um. Die Node wird beim Umschalten neugestartet.</p>
 
-<!-- Network Toggle -->
+<!-- Warning / Info area -->
+<div id="status-banner"></div>
+
+<!-- Network Toggle Card -->
 <div class="card">
   <div class="toggle-row">
     <div class="toggle-wrap off" id="toggle" onclick="handleToggle()">
@@ -47,42 +57,27 @@ p{color:#b8b4ae;line-height:1.5;margin-bottom:12px}
     <span style="font-weight:600" id="toggle-label">Mainnet</span>
     <span id="network-badge"></span>
   </div>
-  <div class="info-text" id="toggle-info">
-    Verbunden mit: <span style="color:#e8e4df" id="api-url">--</span>
+  <div style="margin-top:8px;font-size:11px;color:#6e6b65" id="toggle-info">
+    ⚡ Klick auf den Toggle startet die Node mit dem gewählten Netzwerk neu.
   </div>
 </div>
 
-<!-- Status -->
+<!-- Network Status -->
 <div class="card">
   <h2>📡 Netzwerk-Status</h2>
-  <div id="status-content" style="color:#6e6b65">Lädt...</div>
+  <div id="status-content" class="loading"><span class="spin">⏳</span> Lädt...</div>
 </div>
 
 <!-- Features -->
 <div class="card">
-  <h2>✅ Immer verfügbar</h2>
-  <div id="always-features"></div>
-</div>
-<div class="card">
-  <h2>🧪 Nur im Testnet</h2>
-  <div id="testnet-features"></div>
-</div>
-
-<div id="warning-area"></div>
-
-<!-- Action -->
-<div class="card" style="text-align:center">
-  <p style="margin-bottom:8px">Testnet-Modus im ganzen Dashboard anwenden:</p>
-  <button class="btn btn-primary" id="btn-apply" onclick="applyNetworkMode()">⚡ Jetzt aktivieren</button>
-  <span style="font-size:10px;color:#6e6b65;display:block;margin-top:6px">
-    Setzt STONE_NETWORK=testnet und startet ggf. zweiten Node-Prozess.
-  </span>
+  <h2>🎯 Feature-Status</h2>
+  <div class="feature-grid" id="feature-grid"></div>
 </div>
 
 <div id="toast" style="display:none"></div>
 
 <script>
-var isTestnet=false,status=null,config=null;
+var isTestnet=false,status=null,config=null,restarting=false;
 var _id=0,_p={};
 window.addEventListener('message',function(e){
   if(e.data&&e.data.id&&_p[e.data.id]){
@@ -100,52 +95,96 @@ function invoke(cmd,args){
 function toast(msg,ok){
   var t=document.getElementById('toast');t.textContent=msg;
   t.className='toast '+(ok?'toast-ok':'toast-err');t.style.display='block';
-  setTimeout(function(){t.style.display='none'},3000);
+  setTimeout(function(){t.style.display='none'},4000);
 }
 
-function updateUI(){
+function updateToggleUI(){
   var toggle=document.getElementById('toggle'),label=document.getElementById('toggle-label'),
-      badge=document.getElementById('network-badge'),urlEl=document.getElementById('api-url');
+      badge=document.getElementById('network-badge'),info=document.getElementById('toggle-info');
+  if(restarting){
+    toggle.className='toggle-wrap restarting';
+    label.textContent='Starte neu...';
+    badge.innerHTML='';
+    info.innerHTML='⏳ Node wird neugestartet. Bitte warten...';
+    return;
+  }
   if(isTestnet){
     toggle.className='toggle-wrap on';label.textContent='Testnet';
     badge.innerHTML='<span class="badge badge-testnet">🧪 Aktiv</span>';
-    if(config)urlEl.textContent=config.testnet_url||'--';
+    info.innerHTML='Node läuft auf Port <strong>3080</strong> · Chain: <strong>stone-testnet</strong> · ⚡ Klick zum Wechseln';
   }else{
     toggle.className='toggle-wrap off';label.textContent='Mainnet';
     badge.innerHTML='<span class="badge badge-mainnet">✅ Stabil</span>';
-    if(config)urlEl.textContent=config.mainnet_url||'--';
+    info.innerHTML='Node läuft auf Port <strong>3180</strong> · Chain: <strong>stone-mainnet</strong> · ⚡ Klick zum Wechseln';
   }
-  renderWarning();
-  renderFeatures();
+  updateBanner();
+  updateFeatures();
 }
 
-function handleToggle(){
+function updateBanner(){
+  var area=document.getElementById('status-banner');
+  if(isTestnet){
+    area.innerHTML='<div class="warning-box"><div class="warn-icon">⚠️</div><div class="warn-text"><strong>TESTNET aktiv</strong><br>Coins, Firmen, NFTs und Items sind experimentell. Keine echten Werte! Daten können zurückgesetzt werden.</div></div>';
+  }else{
+    area.innerHTML='<div class="info-box"><div class="info-icon">✅</div><div class="info-text"><strong>MAINNET aktiv</strong><br>Alle Features funktionieren normal. Chat, Server und Dateien sind immer verfügbar.</div></div>';
+  }
+}
+
+var features=[
+  {icon:'💬',name:'Messenger / Chat',id:'chat',always:true},
+  {icon:'📁',name:'Dateien & Storage',id:'files',always:true},
+  {icon:'🖥️',name:'Server & Gruppen',id:'servers',always:true},
+  {icon:'💰',name:'Wallet & Coins',id:'wallet',always:false},
+  {icon:'🏢',name:'Firmen registrieren',id:'companies',always:false},
+  {icon:'💸',name:'Überweisungen',id:'transfers',always:false},
+  {icon:'🎮',name:'Gaming & Items',id:'gaming',always:false},
+  {icon:'📊',name:'Marktplatz',id:'market',always:false},
+];
+
+function updateFeatures(){
+  var grid=document.getElementById('feature-grid');
+  grid.innerHTML=features.map(function(f){
+    var available=f.always||isTestnet;
+    var cls=available?'enabled':'testnet-only';
+    var statusHtml;
+    if(f.always){statusHtml='<span class="badge-ok">✅ Immer verfügbar</span>'}
+    else if(isTestnet){statusHtml='<span class="badge-warn">🧪 Experimentell</span>'}
+    else{statusHtml='<span style="color:#6e6b65;font-size:10px">🔒 Nur Testnet</span>'}
+    return'<div class="feature-card '+cls+'"><span class="fc-icon">'+f.icon+'</span><span class="fc-name">'+f.name+'</span><div class="fc-status">'+statusHtml+'</div></div>';
+  }).join('');
+}
+
+async function handleToggle(){
+  if(restarting)return;
+  restarting=true;
+  updateToggleUI();
+
   isTestnet=!isTestnet;
   try{localStorage.setItem('stone-network-mode',isTestnet?'testnet':'mainnet');}catch(e){}
-  updateUI();
-}
 
-var alwaysFeatures=['💬 Messenger / Chat','📁 Dateien hochladen','🖥️ Server erstellen & beitreten','👤 Profil & Einstellungen'];
-var testnetFeatures=['🪙 Coins senden & empfangen','🏢 Firmen registrieren','🎮 Spiel-Items & NFTs','📊 Marktplatz & Trading','🏆 Staking & Rewards'];
+  try{
+    var result=await invoke('switch_node_network',{});
+    var parts=result.split('|'),net=parts[0],url=parts[1]||'';
+    toast('Node gestartet als '+net.toUpperCase()+' → '+url,true);
 
-function renderWarning(){
-  var area=document.getElementById('warning-area');
-  if(isTestnet){
-    area.innerHTML='<div class="warning-box"><div class="warn-icon">⚠️</div><div class="warn-text"><strong>Du befindest dich im TESTNET!</strong><br>Experimentelle Features (Coins, NFTs, Firmen, Items) sind in Entwicklung. Keine echten Werte übertragen! Daten können jederzeit zurückgesetzt werden.</div></div>';
-  }else{area.innerHTML=''}
-}
-
-function renderFeatures(){
-  var af=document.getElementById('always-features'),tf=document.getElementById('testnet-features');
-  af.innerHTML=alwaysFeatures.map(function(f){return'<div class="feature-row"><span>'+f+'</span><span class="badge-ok">✅ Verfügbar</span></div>'}).join('');
-  tf.innerHTML=testnetFeatures.map(function(f){return'<div class="feature-row"><span>'+f+'</span><span class="'+(isTestnet?'badge-warn':'badge-off')+'">'+(isTestnet?'🧪 Experimentell':'🔒 Nur Testnet')+'</span></div>'}).join('');
+    // Apply theme CSS for testnet
+    if(isTestnet){
+      try{var css=await invoke('get_theme_css',{extensionId:'testnet-mode'});
+      if(css)await invoke('write_theme_css',{extensionId:'testnet-mode',css:css});}catch(e){}
+    }
+    // Reload status after delay
+    setTimeout(function(){restarting=false;loadStatus()},4000);
+  }catch(e){
+    restarting=false;
+    isTestnet=!isTestnet; // revert
+    updateToggleUI();
+    toast('Fehler: '+e,false);
+  }
 }
 
 async function loadStatus(){
   try{
-    // Load config first
     try{config=await invoke('get_node_config',{})}catch(e){config=null}
-    // Then status
     status=await invoke('get_network_status',{});
     var sc=document.getElementById('status-content');
     if(status&&status.chain_id&&status.chain_id!=='unknown'){
@@ -155,50 +194,21 @@ async function loadStatus(){
         '<div class="status-item"><div class="status-val">'+status.peer_count+'</div><div class="status-label">Peers</div></div>'+
         '<div class="status-item"><div class="status-val" style="font-size:12px;font-family:monospace">'+(status.network==='testnet'?'🧪 Testnet':'✅ Mainnet')+'</div><div class="status-label">Netzwerk</div></div>'+
         '</div>';
-      // Sync toggle with actual network
-      if(status.network==='testnet'&&!isTestnet){isTestnet=true;updateUI()}
-      else if(status.network==='mainnet'&&isTestnet){isTestnet=false;updateUI()}
+      // Sync toggle with actual network status
+      if(status.network==='testnet'&&!isTestnet){isTestnet=true;updateToggleUI()}
+      else if(status.network==='mainnet'&&isTestnet){isTestnet=false;updateToggleUI()}
     }else{
-      sc.innerHTML='<div style="text-align:center;padding:12px;color:#6e6b65">'+
-        '<span style="font-size:24px;display:block;margin-bottom:4px">🔌</span>'+
-        'Keine Node-Verbindung.<br><span style="font-size:10px">Die Stone-Node läuft möglicherweise nicht.</span></div>';
+      sc.innerHTML='<div style="text-align:center;padding:16px;color:#6e6b65"><span style="font-size:28px;display:block;margin-bottom:6px">🔌</span>Keine Node-Verbindung.<br><span style="font-size:10px">Starte die Node oder warte auf den Neustart.</span></div>';
     }
   }catch(e){
-    document.getElementById('status-content').innerHTML='<div style="color:#d95b5b;text-align:center;padding:12px">'+
-      '<span style="font-size:24px;display:block;margin-bottom:4px">⚠️</span>Fehler: '+e+'</div>';
+    document.getElementById('status-content').innerHTML='<div style="color:#d95b5b;text-align:center;padding:16px"><span style="font-size:28px;display:block;margin-bottom:6px">⚠️</span>'+e+'</div>';
   }
-  updateUI();
-}
-
-async function applyNetworkMode(){
-  var btn=document.getElementById('btn-apply');
-  btn.textContent='⏳ Node wird neugestartet...';btn.disabled=true;
-  try{
-    // Persist the preference
-    try{localStorage.setItem('stone-network-mode',isTestnet?'testnet':'mainnet');}catch(e){}
-
-    // Call Tauri to restart the node with the new network
-    var result=await invoke('switch_node_network',{});
-    // result is "network|http://url:port"
-    var parts=result.split('|');
-    var net=parts[0],url=parts[1]||'';
-
-    // Apply theme CSS
-    if(isTestnet){
-      try{var css=await invoke('get_theme_css',{extensionId:'testnet-mode'});
-      if(css){await invoke('write_theme_css',{extensionId:'testnet-mode',css:css})}
-      }catch(e){}
-    }
-
-    toast('Node gestartet als '+net.toUpperCase()+' ('+url+')',true);
-    // Reload status after short delay (node needs time to boot)
-    setTimeout(function(){loadStatus()},3000);
-  }catch(e){toast('Fehler: '+e,false)}
-  btn.textContent='⚡ Jetzt aktivieren';btn.disabled=false;
+  updateToggleUI();
 }
 
 // Init
-renderFeatures();
+updateFeatures();
+updateBanner();
 loadStatus();
 setInterval(loadStatus,30000);
 </script></body></html>
