@@ -167,13 +167,22 @@ async function handleToggle(){
     var parts=result.split('|'),net=parts[0],url=parts[1]||'';
     toast('Node gestartet als '+net.toUpperCase()+' → '+url,true);
 
+    // Sync stone_settings so the dashboard uses the correct URL
+    try{
+      var raw=localStorage.getItem('stone_settings');
+      var settings=raw?JSON.parse(raw):{};
+      settings.network=net;
+      settings.nodeUrl=url;
+      localStorage.setItem('stone_settings',JSON.stringify(settings));
+    }catch(e){}
+
     // Apply theme CSS for testnet
     if(isTestnet){
       try{var css=await invoke('get_theme_css',{extensionId:'testnet-mode'});
       if(css)await invoke('write_theme_css',{extensionId:'testnet-mode',css:css});}catch(e){}
     }
-    // Reload status after delay
-    setTimeout(function(){restarting=false;loadStatus()},4000);
+    // Reload status after delay (wait for node restart)
+    setTimeout(function(){restarting=false;loadStatus()},5000);
   }catch(e){
     restarting=false;
     isTestnet=!isTestnet; // revert
@@ -183,8 +192,31 @@ async function handleToggle(){
 }
 
 async function loadStatus(){
+  // ── 1) Read network from node_config.db (source of truth) ──────────────
   try{
-    try{config=await invoke('get_node_config',{})}catch(e){config=null}
+    var dbCfg=await invoke('read_node_config_db',{});
+    if(dbCfg&&dbCfg.ok&&dbCfg.network){
+      var dbNet=dbCfg.network;
+      // Sync toggle with DB (the actual persisted config)
+      if(dbNet==='testnet'&&!isTestnet){isTestnet=true;}
+      else if(dbNet==='mainnet'&&isTestnet){isTestnet=false;}
+      // Update localStorage to stay consistent
+      try{localStorage.setItem('stone-network-mode',dbNet);}catch(e){}
+      // Update stone_settings with correct port
+      if(dbCfg.port){
+        try{
+          var raw=localStorage.getItem('stone_settings');
+          var settings=raw?JSON.parse(raw):{};
+          settings.network=dbNet;
+          settings.nodeUrl='http://127.0.0.1:'+dbCfg.port;
+          localStorage.setItem('stone_settings',JSON.stringify(settings));
+        }catch(e){}
+      }
+    }
+  }catch(e){/* DB not available yet */}
+
+  // ── 2) Try to get live node status for the grid ────────────────────────
+  try{
     status=await invoke('get_network_status',{});
     var sc=document.getElementById('status-content');
     if(status&&status.chain_id&&status.chain_id!=='unknown'){
@@ -192,18 +224,36 @@ async function loadStatus(){
         '<div class="status-item"><div class="status-val" style="color:var(--accent)">'+status.chain_id+'</div><div class="status-label">Chain ID</div></div>'+
         '<div class="status-item"><div class="status-val" style="color:var(--green)">#'+status.block_height+'</div><div class="status-label">Block Höhe</div></div>'+
         '<div class="status-item"><div class="status-val">'+status.peer_count+'</div><div class="status-label">Peers</div></div>'+
-        '<div class="status-item"><div class="status-val" style="font-size:12px;font-family:monospace">'+(status.network==='testnet'?'🧪 Testnet':'✅ Mainnet')+'</div><div class="status-label">Netzwerk</div></div>'+
+        '<div class="status-item"><div class="status-val" style="font-size:12px;font-family:monospace">'+status.node_url+'</div><div class="status-label">Node URL</div></div>'+
         '</div>';
-      // Sync toggle with actual network status
-      if(status.network==='testnet'&&!isTestnet){isTestnet=true;updateToggleUI()}
-      else if(status.network==='mainnet'&&isTestnet){isTestnet=false;updateToggleUI()}
+    }else{
+      // Node not reachable — show DB info as fallback
+      showDbFallback();
+    }
+  }catch(e){
+    showDbFallback();
+  }
+  updateToggleUI();
+}
+
+function showDbFallback(){
+  var sc=document.getElementById('status-content');
+  // Try to read from DB again for the fallback display
+  invoke('read_node_config_db',{}).then(function(dbCfg){
+    if(dbCfg&&dbCfg.ok){
+      sc.innerHTML='<div class="status-grid">'+
+        '<div class="status-item"><div class="status-val" style="font-size:12px;font-family:monospace">'+(dbCfg.network==='testnet'?'🧪 Testnet':'✅ Mainnet')+'</div><div class="status-label">Konfiguriert (DB)</div></div>'+
+        '<div class="status-item"><div class="status-val">:'+dbCfg.port+'</div><div class="status-label">Port</div></div>'+
+        '<div class="status-item"><div class="status-val" style="font-size:11px">'+dbCfg.node_name+'</div><div class="status-label">Node Name</div></div>'+
+        '<div class="status-item"><div class="status-val">'+(dbCfg.setup_complete?'✅':'⏳')+'</div><div class="status-label">Setup</div></div>'+
+        '</div>'+
+        '<div style="text-align:center;margin-top:10px;font-size:11px;color:#6e6b65">🔌 Node nicht erreichbar — zeige DB-Konfiguration</div>';
     }else{
       sc.innerHTML='<div style="text-align:center;padding:16px;color:#6e6b65"><span style="font-size:28px;display:block;margin-bottom:6px">🔌</span>Keine Node-Verbindung.<br><span style="font-size:10px">Starte die Node oder warte auf den Neustart.</span></div>';
     }
-  }catch(e){
-    document.getElementById('status-content').innerHTML='<div style="color:#d95b5b;text-align:center;padding:16px"><span style="font-size:28px;display:block;margin-bottom:6px">⚠️</span>'+e+'</div>';
-  }
-  updateToggleUI();
+  }).catch(function(){
+    sc.innerHTML='<div style="text-align:center;padding:16px;color:#6e6b65"><span style="font-size:28px;display:block;margin-bottom:6px">🔌</span>Keine Node-Verbindung.<br><span style="font-size:10px">Starte die Node oder warte auf den Neustart.</span></div>';
+  });
 }
 
 // Init
